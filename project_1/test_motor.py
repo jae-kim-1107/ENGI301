@@ -20,18 +20,18 @@ GPIO.setup('P1_33',GPIO.OUT)
 GPIO.setup('P1_35',GPIO.OUT)
 GPIO.setup('P1_36',GPIO.OUT)
 
-GPIO.output('P2_4', 1)
+GPIO.output('P2_4', 0)
 GPIO.output('P2_6', 0)
 GPIO.output('P2_2', 1)
 
-GPIO.output('P2_5', 1)
+GPIO.output('P2_5', 0)
 GPIO.output('P2_7', 0)
 GPIO.output('P2_8', 1)
 
 GPIO.output('P1_30', 0)
-GPIO.output('P1_32', 1)
+GPIO.output('P1_32', 0)
 GPIO.output('P1_34', 1)
 
-GPIO.output('P1_33', 1)
+GPIO.output('P1_33', 0)
 GPIO.output('P1_35', 0)
 GPIO.output('P1_36', 1)

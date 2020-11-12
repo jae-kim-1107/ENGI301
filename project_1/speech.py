@@ -84,25 +84,29 @@ class speech:
         
     def run(self,file):
         
+        motors = mc.motors()
+        
         recording = self.record(audiofile=file)
         
         text = self.recognize(recording=recording)
         
         if text == 'backward':
-            mc.motors.movebackward()
-            print(text)
+            motors.movebackward()
+            print('backward')
         elif text == 'forward':
-            mc.motors.moveforward()
-            print(text)
+            motors.moveforward()
+            print('forward')
         elif text == 'right':
-            mc.motors.turnright()
-            print(text)
+            motors.turnright()
+            print('right')
         elif text == 'left':
-            mc.motors.turnleft()
-            print(text)
+            motors.turnleft()
+            print('left')
         elif text == 'stop':
-            mc.motors.stop()
-            print(text)
+            motors.stop()
+            print('stop')
+            
+    # End def
 
 
 # ------------------------------------------------------------------------
@@ -114,7 +118,7 @@ if __name__ == '__main__':
     Speech = speech()
     
     try:
-        Speech.run(file='backward.wav')
+        Speech.run(file='left.wav')
         
     except KeyboardInterrupt:
         pass

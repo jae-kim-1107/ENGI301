@@ -90,7 +90,7 @@ class motors():
         
     # End def
     
-    def stop():
+    def stop(self):
         GPIO.output('P2_4', 0)
         GPIO.output('P2_6', 0)
         GPIO.output('P2_5', 0)
@@ -114,7 +114,7 @@ class motors():
         
     # End def
     
-    def moveforward():
+    def moveforward(self):
         self.setforward(motor=motor1)
         self.setforward(motor=motor2)
         self.setforward(motor=motor3)
@@ -124,7 +124,7 @@ class motors():
     
     # End def
     
-    def movebackward():
+    def movebackward(self):
         self.setbackward(motor=motor1)
         self.setbackward(motor=motor2)
         self.setbackward(motor=motor3)
@@ -134,22 +134,22 @@ class motors():
         
     # End def
     
-    def turnleft():
+    def turnleft(self):
         self.setforward(motor=motor1)
         self.setforward(motor=motor4)
         self.setbackward(motor=motor2)
         self.setbackward(motor=motor3)
-        time.sleep(2)
+        time.sleep(1)
         self.stop()
         
     # End def
     
-    def turnright():
+    def turnright(self):
         self.setforward(motor=motor2)
         self.setforward(motor=motor3)
         self.setbackward(motor=motor1)
         self.setbackward(motor=motor4)
-        time.sleep(2)
+        time.sleep(1)
         self.stop()
         
     # End def
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     Motors = motors()
     
     try:
-        Motors.moveforward()
+        Motors.turnleft()
         
     except KeyboardInterrupt:
         Motors.stop()
