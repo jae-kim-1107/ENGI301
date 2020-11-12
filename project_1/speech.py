@@ -1,6 +1,6 @@
 """
 --------------------------------------------------------------------------
-Motor Control
+Speech Recognition
 --------------------------------------------------------------------------
 License:   
 Copyright 2020 Jae Hyen Kim
@@ -32,9 +32,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------
 
 """
-import time
 
-import Adafruit_BBIO.GPIO as GPIO
+import speech_recognition as sr
+
+import motor_control as mc
 
 # ------------------------------------------------------------------------
 # Constants
@@ -46,128 +47,74 @@ import Adafruit_BBIO.GPIO as GPIO
 # Global variables
 # ------------------------------------------------------------------------
 
-motor1 = ['P2_4', 'P2_6']
-motor2 = ['P2_5', 'P2_7']
-motor3 = ['P1_30', 'P1_32']
-motor4 = ['P1_33', 'P1_35']
+# None
 
 # ------------------------------------------------------------------------
 # Functions / Classes
 # ------------------------------------------------------------------------
 
-class motors():
+class speech:
     
     def __init__(self):
-        self._setup()
+        pass
+    
+    # End def
     
     def _setup(self):
-        """ Set up GPIO pins """
-        #front right
-        GPIO.setup('P2_2',GPIO.OUT)
-        GPIO.setup('P2_4',GPIO.OUT)
-        GPIO.setup('P2_6',GPIO.OUT)
+        pass
+    
+    def recognize(self, recording):
         
-        #front left
-        GPIO.setup('P2_5',GPIO.OUT)
-        GPIO.setup('P2_7',GPIO.OUT)
-        GPIO.setup('P2_8',GPIO.OUT)
+        r = sr.Recognizer()
         
-        #back right
-        GPIO.setup('P1_30',GPIO.OUT)
-        GPIO.setup('P1_32',GPIO.OUT)
-        GPIO.setup('P1_34',GPIO.OUT)
+        with recording as source:
+            audio = r.record(source)
+            
+        text = r.recognize_sphinx(audio)
         
-        #back left
-        GPIO.setup('P1_33',GPIO.OUT)
-        GPIO.setup('P1_35',GPIO.OUT)
-        GPIO.setup('P1_36',GPIO.OUT)
-        
-        ''' Enable driver channels'''
-        GPIO.output('P2_2', 1)
-        GPIO.output('P2_8', 1)
-        GPIO.output('P1_34', 1)
-        GPIO.output('P1_36', 1)
+        return text
         
     # End def
     
-    def stop():
-        GPIO.output('P2_4', 0)
-        GPIO.output('P2_6', 0)
-        GPIO.output('P2_5', 0)
-        GPIO.output('P2_7', 0)
-        GPIO.output('P1_30', 0)
-        GPIO.output('P1_32', 0)
-        GPIO.output('P1_33', 0)
-        GPIO.output('P1_35', 0)
+    def record(self,audiofile):
+        recording = sr.AudioFile(audiofile)
+        return recording
         
     # End def
         
-    def setforward(self, motor):
-        GPIO.output(motor[0], 1)
-        GPIO.output(motor[1], 0)
+    def run(self,file):
         
-    # End def
-    
-    def setbackward(self, motor):
-        GPIO.output(motor[0], 0)
-        GPIO.output(motor[1], 1)
+        recording = self.record(audiofile=file)
         
-    # End def
-    
-    def moveforward():
-        self.setforward(motor=motor1)
-        self.setforward(motor=motor2)
-        self.setforward(motor=motor3)
-        self.setforward(motor=motor4)
-        time.sleep(2)
-        self.stop()
-    
-    # End def
-    
-    def movebackward():
-        self.setbackward(motor=motor1)
-        self.setbackward(motor=motor2)
-        self.setbackward(motor=motor3)
-        self.setbackward(motor=motor4)
-        time.sleep(2)
-        self.stop()
+        text = self.recognize(recording=recording)
         
-    # End def
-    
-    def turnleft():
-        self.setforward(motor=motor1)
-        self.setforward(motor=motor4)
-        self.setbackward(motor=motor2)
-        self.setbackward(motor=motor3)
-        time.sleep(2)
-        self.stop()
-        
-    # End def
-    
-    def turnright():
-        self.setforward(motor=motor2)
-        self.setforward(motor=motor3)
-        self.setbackward(motor=motor1)
-        self.setbackward(motor=motor4)
-        time.sleep(2)
-        self.stop()
-        
-    # End def
-    
-    
-    
-    
+        if text == 'backward':
+            mc.motors.movebackward()
+            print(text)
+        elif text == 'forward':
+            mc.motors.moveforward()
+            print(text)
+        elif text == 'right':
+            mc.motors.turnright()
+            print(text)
+        elif text == 'left':
+            mc.motors.turnleft()
+            print(text)
+        elif text == 'stop':
+            mc.motors.stop()
+            print(text)
+
+
 # ------------------------------------------------------------------------
 # Main script
 # ------------------------------------------------------------------------
 
 if __name__ == '__main__':
     
-    Motors = motors()
+    Speech = speech()
     
     try:
-        Motors.moveforward()
+        Speech.run(file='backward.wav')
         
     except KeyboardInterrupt:
-        Motors.stop()
-        
+        pass
