@@ -28,8 +28,8 @@ GPIO.output('P2_5', 1)
 GPIO.output('P2_7', 0)
 GPIO.output('P2_8', 1)
 
-GPIO.output('P1_30', 1)
-GPIO.output('P1_32', 0)
+GPIO.output('P1_30', 0)
+GPIO.output('P1_32', 1)
 GPIO.output('P1_34', 1)
 
 GPIO.output('P1_33', 1)
