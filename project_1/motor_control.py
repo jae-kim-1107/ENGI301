@@ -115,11 +115,29 @@ class motors():
     
     # End def
     
+    def movebackward(self):
+        self.setbackward(motor=motor1)
+        self.setbackward(motor=motor2)
+        self.setbackward(motor=motor3)
+        self.setbackward(motor=motor4)
+        
+    # End def
+    
     def turnleft(self):
         self.setforward(motor=motor1)
         self.setforward(motor=motor4)
         self.setbackward(motor=motor2)
         self.setbackward(motor=motor3)
+        time.sleep(2)
+        self.stop()
+        
+    # End def
+    
+    def turnright(self):
+        self.setforward(motor=motor2)
+        self.setforward(motor=motor3)
+        self.setbackward(motor=motor1)
+        self.setbackward(motor=motor4)
         time.sleep(2)
         self.stop()
         
@@ -138,6 +156,7 @@ if __name__ == '__main__':
     
     try:
         Motors.turnleft()
+        Motors.turnright()
 
         
     except KeyboardInterrupt:
