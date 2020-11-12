@@ -1,0 +1,514 @@
+"""
+--------------------------------------------------------------------------
+Combination Lock
+--------------------------------------------------------------------------
+License:   
+Copyright 2020 <NAME>
+
+Redistribution and use in source and binary forms, with or without 
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this 
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, 
+this list of conditions and the following disclaimer in the documentation 
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors 
+may be used to endorse or promote products derived from this software without 
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--------------------------------------------------------------------------
+
+Use the following hardware components to make a programmable combination lock:  
+  - HT16K33 Display
+  - Button
+  - Red LED
+  - Green LED
+  - Potentiometer (analog input)
+  - Servo
+
+Requirements:
+  - Hardware:
+    - When locked:   Red LED is on; Green LED is off; Servo is "closed"; Display is unchanged
+    - When unlocked: Red LED is off; Green LED is on; Servo is "open"; Display is "----"
+    - Display shows value of potentiometer (raw value of analog input divided by 8)
+    - Button
+      - Waiting for a button press should allow the display to update (if necessary) and return any values
+      - Time the button was pressed should be recorded and returned
+    - User interaction:
+      - Needs to be able to program the combination for the “lock”
+        - Need to be able to input three values for the combination to program or unlock the “lock”
+      - Combination lock should lock when done programming and wait for combination input
+      - If combination is unsuccessful, the lock should go back to waiting for combination input
+      - If combination was successful, the lock should unlock
+        - When unlocked, pressing button for less than 2s will re-lock the lock; greater than 2s will allow lock to be re-programmed
+
+Uses:
+  - HT16K33 display library developed in class
+    - Library updated to add "set_digit_raw()", "set_colon()"
+
+"""
+import time
+import threading
+
+import Adafruit_BBIO.GPIO as GPIO
+import Adafruit_BBIO.ADC as ADC
+import Adafruit_BBIO.PWM as PWM
+
+import ht16k33 as HT16K33
+
+
+# ------------------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------------------
+
+SG90_FREQ   = 50                  # 20ms period (50Hz)
+SG90_POL    = 0                   # Rising Edge polarity
+SG90_OFF    = 5                   # 0ms pulse -- Servo is inactive
+SG90_CLOSE  = 5                   # 1ms pulse (5% duty cycle)  -- All the way right
+SG90_OPEN   = 10                  # 2ms pulse (10% duty cycle) -- All the way Left
+
+
+# ------------------------------------------------------------------------
+# Global variables
+# ------------------------------------------------------------------------
+
+# None
+
+# ------------------------------------------------------------------------
+# Functions / Classes
+# ------------------------------------------------------------------------
+
+class CombinationLock():
+    """ CombinationLock """
+    reset_time = None
+    button     = None
+    red_led    = None
+    green_led  = None
+    analog_in  = None
+    servo      = None
+    display    = None
+    sound      = None
+    
+    def __init__(self, reset_time=2.0, button="P2_2", 
+                       red_led="P2_6", green_led="P2_4",
+                       analog_in="P1_19", servo="P1_36", 
+                       i2c_bus=1, i2c_address=0x70, sound=None):
+        """ Initialize variables and set up display """
+        self.reset_time = reset_time
+        self.button     = button
+        self.red_led    = red_led
+        self.green_led  = green_led
+        self.analog_in  = analog_in
+        self.servo      = servo
+        self.display    = HT16K33.HT16K33(i2c_bus, i2c_address)
+        if sound is not None:
+            self.sound  = sound
+        self._setup()
+    
+    # End def
+    
+    
+    def _setup(self):
+        """Setup the hardware components."""
+
+        # Initialize Display
+        self.set_display_dash()
+
+        # Initialize Button
+        GPIO.setup(self.button, GPIO.IN)
+        
+        # Initialize LEDs
+        GPIO.setup(self.red_led, GPIO.OUT)
+        GPIO.setup(self.green_led, GPIO.OUT)
+        
+        # Initialize Analog Input
+        ADC.setup()
+        
+        # Initialize Servo; Servo should be "off"
+        PWM.start(self.servo, SG90_OFF, SG90_FREQ, SG90_POL)
+
+    # End def
+
+
+    def lock(self):
+        """Lock the lock:
+               - Turn on red LED; Turn off green LED
+               - Set servo to closed
+        """
+        
+        # Set LEDs
+        GPIO.output(self.green_led, GPIO.LOW)
+        GPIO.output(self.red_led, GPIO.HIGH)
+
+        # Set servo
+        PWM.set_duty_cycle(self.servo, SG90_CLOSE)
+
+    # End def
+
+
+    def unlock(self):
+        """Unlock the lock.
+               - Turn off red LED; Turn on green LED
+               - Set servo to open
+               - Set display to "----"
+        """
+        
+        # Set LEDs
+        GPIO.output(self.green_led, GPIO.HIGH)
+        GPIO.output(self.red_led, GPIO.LOW)
+
+        # Set servo
+        PWM.set_duty_cycle(self.servo, SG90_OPEN)
+
+        # Set display to dash
+        self.set_display_dash()
+
+    # End def
+
+
+    def show_analog_value(self):
+        """Show the analog value on the screen:
+               - Read raw analog value
+               - Divide by 4 (remove two LSBs)
+               - Display value
+               - Return value
+        """
+
+        # Read raw value from ADC
+        value = ADC.read_raw(self.analog_in)
+
+        # Divide value by 8
+        value = int(value // 8)
+
+        # Update display (must be an integer)
+        self.display.update(value)
+        
+        # Play the sound of the value
+        if self.sound is not None:
+            self.sound.play_notes(Note(value, 0.2))
+
+        # Return value
+        return value
+
+    # End def
+
+
+    def button_press(self, function=None):
+        """Button press
+               - Optional function to execute while waiting for the button to be pressed
+                 - Returns the last value of the function when the button was pressed
+               - Waits for a full button press
+               - Returns the time the button was pressed
+        """
+        button_press_time            = 0.0                 # Time button was pressed (in seconds)
+        ret_val                      = None                # Optional return value for provided function
+
+        # Wait for button press
+        while(GPIO.input(self.button) == 1):
+            # Optionally execute function pointer that is provided
+            if function is not None:
+                ret_val = function()
+            # Sleep for a short period of time to reduce CPU load
+            time.sleep(0.1)
+
+        # Record time
+        button_press_time = time.time()
+
+        # Wait for button release
+        while(GPIO.input(self.button) == 0):
+            # Sleep for a short period of time to reduce CPU load
+            time.sleep(0.1)
+
+        # Compute button press time
+        button_press_time = time.time() - button_press_time
+
+        # Return button press time and optionally ret_val
+        if function is not None:
+            return (button_press_time, ret_val)
+        else:
+            return button_press_time
+
+    # End def
+
+        
+    def input_combination(self):
+        """Input a combination for the lock:
+               - Wait for a button press doing nothing (start of user inputing combination)
+               - Repeat 3 time:
+                 - Wait for button press; show analog value
+                 - Record analog value
+               - Return combination
+        """
+        # Initialize combination array
+        combination = [None, None, None]
+
+        # Wait for button press (do nothing)
+        self.button_press()
+
+        time.sleep(1)
+        
+        for i in range(3):
+            # Update display with current input
+            self.set_display_input(i + 1)
+
+            # Wait for button press while showing analog value
+            value = None
+            
+
+            # Wait for button press (show analog value)
+            (button_press_time, value) = self.button_press(function=self.show_analog_value)
+
+            # Record Analog value
+            combination[i] = value
+
+        # print(combination)                       # For debug only
+        return combination
+
+    # End def
+
+
+    def run(self):
+        """Execute the main program."""
+        combination                  = [None, None, None]  # Combination
+        combo_attempt                = [None, None, None]  # Combination attempt
+        program                      = True
+        
+        # Unlock the lock
+        self.unlock()
+
+        while(1):
+            
+            # Program the lock
+            if (program):
+                # Set display
+                self.set_display_prog()
+                
+                # Get combination
+                combination = self.input_combination()
+                print(combination)   #For debug only
+                time.sleep(2)        #For debug only
+                
+                # Lock the lock
+                self.lock()
+                
+                # Set program lock to False
+                program = False
+                
+            # Set Display to try combination
+            self.set_display_try()
+
+            # Get combination
+            combo_attempt = self.input_combination()
+            print(combo_attempt)   #For debug only
+            time.sleep(2)        #For debug only
+
+            # Compare attempt against combination
+            combo_pass = True
+            
+            for i in range(len(combination)):
+                if combination[i] != combo_attempt[i]:
+                    combo_pass = False
+
+            # If combination passed
+            if combo_pass:
+                # Unlock the lock
+                self.unlock()
+
+                # Wait for button press
+                button_press_time = self.button_press()
+
+                # If greater than reset_time, program lock, else lock the lock
+                if (button_press_time > self.reset_time):
+                    program = True
+                else:
+                    self.lock()
+
+    # End def
+
+
+    def set_display_prog(self):
+        """Set display to word "Prog" """
+        self.display.set_digit_raw(0, 0x73)        # "P"
+        self.display.set_digit_raw(1, 0x50)        # "r"
+        self.display.set_digit_raw(2, 0x5C)        # "o"
+        self.display.set_digit_raw(3, 0x6F)        # "g"
+
+    # End def
+
+
+    def set_display_try(self):
+        """Set display to word " go " """
+        self.display.set_digit_raw(0, 0x00)        # ""
+        self.display.set_digit_raw(1, 0x6F)        # "g"
+        self.display.set_digit_raw(2, 0x5C)        # "o"
+        self.display.set_digit_raw(3, 0x00)        # ""
+
+    # End def
+
+
+    def set_display_input(self, number):
+        """Set display to word "in: #" """
+        self.display.set_digit_raw(0, 0x10)        # "i"
+        self.display.set_digit_raw(1, 0x54)        # "n"
+        self.display.set_digit_raw(2, 0x00)        # ""
+        self.display.set_digit(3, number)          # Number
+        self.display.set_colon(True)
+
+        time.sleep(1)
+        
+        self.display.set_colon(False)
+
+    # End def
+
+
+    def set_display_dash(self):
+        """Set display to word "----" """
+        self.display.set_digit_raw(0, 0x40)        # "-"
+        self.display.set_digit_raw(1, 0x40)        # "-"
+        self.display.set_digit_raw(2, 0x40)        # "-"
+        self.display.set_digit_raw(3, 0x40)        # "-"
+
+    # End def
+
+
+    def cleanup(self):
+        """Cleanup the hardware components."""
+        
+        # Set Display to something fun to show program is complete
+        self.display.set_digit(0, 13)        # "D"
+        self.display.set_digit(1, 14)        # "E"
+        self.display.set_digit(2, 10)        # "A"
+        self.display.set_digit(3, 13)        # "D"
+        self.display.set_colon(False)
+
+        # Turn off LEDs
+        GPIO.output(self.red_led, GPIO.LOW)
+        GPIO.output(self.green_led, GPIO.LOW)
+
+        # Clean up GPIOs
+        GPIO.cleanup()
+
+        # Stop servo
+        PWM.stop(self.servo)
+        PWM.cleanup()
+        
+    # End def
+
+# End class
+
+
+
+class Note():
+    """Class to contain notes"""
+    freq   = None
+    length = None
+    
+    def __init__(self, freq, length):
+        self.freq   = freq
+        self.length = length
+    # End def
+    
+    def get_freq(self):
+        return self.freq
+    # End def
+    
+    def get_length(self):
+        return self.length
+    # End def
+
+# End Class
+
+class BuzzerSound(threading.Thread):
+    pin     = None
+    notes   = None
+    stop    = None
+    
+    def __init__(self, pin):
+        """Initialize BuzzerSound Class"""
+        threading.Thread.__init__(self)
+        
+        self.pin    = pin
+        self.notes  = []
+        self.stop   = False
+    # End def
+    
+    def run(self):
+        """Run method for thread
+          - run until stop() is called
+          - Automatically started by thread
+        """
+        while not self.stop:
+            if self.notes:
+                note = self.notes.pop(0)
+                PWM.start(self.pin, 5, note.get_freq())
+                time.sleep(note.get_length())
+            else:
+                PWM.stop(self.pin)
+    # End def
+    
+    def play_notes(self, notes):
+        """notes can be either a singular Note() or list of None"""
+        if type(notes) is list:
+            self.notes.extend(notes)
+        else:
+            if notes is not None:
+                self.notes.append(notes)
+    # End def
+    
+    def end(self):
+        """Stop the thread."""
+        self.stop = True
+    # End def
+    
+    
+# End Class
+
+
+
+# ------------------------------------------------------------------------
+# Main script
+# ------------------------------------------------------------------------
+
+if __name__ == '__main__':
+
+    print("Program Start")
+    
+    # Start the BuzzerSound thread
+    buzzer_sound = BuzzerSound("P2_1")
+    buzzer_sound.start()
+
+    # Create instantiation of the people counter
+    combo_lock = CombinationLock(sound=buzzer_sound)
+
+    try:
+        # Run the people counter
+        combo_lock.run()
+
+    except KeyboardInterrupt:
+        # Clean up hardware when exiting
+        buzzer_sound.end()
+        
+    # Stop Threads
+    main_thread = threading.currentThread()
+    
+    for t in threading.enumerate():
+        if t is not main_thread:
+            t.join()
+
+    combo_lock.cleanup()
+
+    print("Program Complete")
+
