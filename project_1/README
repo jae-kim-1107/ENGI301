@@ -1,0 +1,13 @@
+Voice Controlled Car, Jae Hyen Kim
+
+Hello! Thanks for checking out my project!
+
+The story behind this and the build instructions can be found here:
+https://www.hackster.io/jae-kim2/voice-controlled-toy-car-fcd8af
+
+Once built, in order to run this project as-is, simply navigate to the
+directory that the code is in and type: ./run (assuming you're using the
+same set-up in the cloud9 or a similar terminal). This should properly
+configure all your pins and start moving the car. If you want to give
+the car different instructions, simply go to the "speech.py" file and
+modify the main script and add whatever directions you want.

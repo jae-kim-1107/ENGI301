@@ -118,7 +118,13 @@ if __name__ == '__main__':
     Speech = speech()
     
     try:
+        Speech.run(file='forward.wav')
+        Speech.run(file='right.wav')
+        Speech.run(file='forward.wav')
         Speech.run(file='left.wav')
+        Speech.run(file='forward.wav')
+        Speech.run(file='left.wav')
+        Speech.run(file='backward.wav')
         
     except KeyboardInterrupt:
         pass
