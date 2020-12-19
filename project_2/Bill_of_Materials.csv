@@ -1,0 +1,7 @@
+Designator,Manufacter/MPN,Quantity,Description
+POCKETBEAGLE,POCKETBEAGLE-SC-569,1,USB-key-fob computer
+MOTOR_PAD,N/A,4,Connection for motor
+MOTOR_DRIVER,L293DNE,2,Quadruple high-current half-H drivers
+FIDUCIAL,N/A,3,FIDUCIAL
+USB,TE Connectivity 292303-6,1,Surface-mounted USB-A Connector
+MOUNTING_HOLE,N/A,4,Holes for mounting
